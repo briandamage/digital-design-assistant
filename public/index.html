@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Brand Assistant – Prototype</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Ministerium LU – Brand Assistant</h1>
+  </header>
+
+  <main>
+    <section id="form">
+
+      <label for="imageUpload">Bild hochladen:</label>
+      <input type="file" id="imageUpload" name="imageUpload" accept="image/*">
+      <!-- Optional: Vorschau für das hochgeladene Bild -->
+      <img id="imagePreview" src="#" alt="Bildvorschau" style="max-width: 200px; max-height: 150px; margin-top: 10px; display: none;">
+      <label>Titel
+        <input id="title" placeholder="Titel eingeben" />
+      </label>
+      <label>Untertitel
+        <input id="subtitle" placeholder="Optional" />
+      </label>
+      <label>Farbstil
+        <select id="theme">
+          <option value="primary">CI-Blau</option>
+          <option value="neutral">Hell</option>
+          <option value="dark">Dunkel</option>
+        </select>
+      </label>
+
+      <button id="generate">Layout erzeugen</button>
+      <button id="download" disabled>Export (PNG & PDF)</button>
+    </section>
+
+    <section id="preview" class="grid">
+      <!-- Drei Canvas-Container werden per JS gefüllt -->
+      <canvas id="poster"></canvas>
+      <canvas id="post"></canvas>
+      <canvas id="banner"></canvas>
+    </section>
+  </main>
+
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.1/jspdf.umd.min.js" integrity="sha512-ad3j5/L4h648YM/KObaUfjCsZRBP9sAOmpjaT2BDx6u9aBrKFp7SbeHykruy83rxfmG42+5QqeL/ngcojglbJw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+  <script type="module" src="assistant.js"></script>
+</body>
+</html>
