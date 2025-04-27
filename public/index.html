@@ -18,6 +18,7 @@
       <input type="file" id="imageUpload" name="imageUpload" accept="image/*">
       <!-- Optional: Vorschau für das hochgeladene Bild -->
       <img id="imagePreview" src="#" alt="Bildvorschau" style="max-width: 200px; max-height: 150px; margin-top: 10px; display: none;">
+
       <label>Titel
         <input id="title" placeholder="Titel eingeben" />
       </label>
@@ -34,8 +35,13 @@
 
       <button id="generate">Layout erzeugen</button>
       <button id="download" disabled>Export (PNG & PDF)</button>
+
+      <button id="toggleImagePosBtn" disabled>Layout ändern</button>
+
     </section>
 
+    <hr>
+    
     <section id="preview" class="grid">
       <!-- Drei Canvas-Container werden per JS gefüllt -->
       <canvas id="poster"></canvas>

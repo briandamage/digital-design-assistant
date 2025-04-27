@@ -11,6 +11,7 @@ import ('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.2/jspdf.plug
 let tokens = {}; // Initialize tokens as an empty object
 let uploadedImage = null; // Variable für das geladene Bild-Objekt
 let isImageLoading = false; // Flag, um zu prüfen, ob ein Bild gerade lädt
+let isImageAtTop = false; // NEU: false = Mitte (Standard), true = Oben
 
 async function loadTokens() {
   try {
@@ -108,69 +109,73 @@ function setupCanvas(canvas, w, h) {
 }
 
 // --- Zeichenlogik (erweitert um Bild) ---
-function drawLayout(ctx, cfg, image) { // Nimmt jetzt 'image' als Parameter
+function drawLayout(ctx, cfg, image) { // Signatur bleibt gleich, greift auf globale Variable zu
   const { w, h, theme, t, text, sub } = cfg;
 
   // 0. Hintergrund
   ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, w, h);
 
-  // NEU: Bild zeichnen (Beispiel: Füllt die untere Hälfte)
+  // NEU: Bild zeichnen (Position abhängig von isImageAtTop)
   if (image && image.complete && image.naturalWidth !== 0) {
     try {
-      // Beispiel: Bild in untere Hälfte einpassen, Seitenverhältnis beibehalten (cover)
-      const targetRatio = w / (h * 0.5); // Ziel-Ratio (Breite zu halber Höhe)
+      // Ziel-Höhe ist immer noch die Hälfte der Canvas-Höhe
+      const targetHeight = h * 0.5;
+      const targetRatio = w / targetHeight;
       const imageRatio = image.naturalWidth / image.naturalHeight;
       let sourceX = 0, sourceY = 0, sourceWidth = image.naturalWidth, sourceHeight = image.naturalHeight;
-      let drawX = 0, drawY = h * 0.5, drawWidth = w, drawHeight = h * 0.5;
+      let drawX = 0;
+      // HIER DIE ÄNDERUNG: Bestimme drawY basierend auf isImageAtTop
+      const drawY = isImageAtTop ? 0 : h * 0.5;
+      let drawWidth = w;
+      let drawHeight = targetHeight; // Zeichne in die Hälfte der Höhe
 
-      if (imageRatio > targetRatio) { // Bild ist breiter als Zielbereich
+      if (imageRatio > targetRatio) {
         sourceWidth = image.naturalHeight * targetRatio;
         sourceX = (image.naturalWidth - sourceWidth) / 2;
-      } else { // Bild ist höher als Zielbereich (oder gleich)
+      } else {
         sourceHeight = image.naturalWidth / targetRatio;
         sourceY = (image.naturalHeight - sourceHeight) / 2;
       }
       ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, // Source rect
-                           drawX, drawY, drawWidth, drawHeight);       // Destination rect
+                           drawX, drawY, drawWidth, drawHeight);       // Destination rect (mit variablem drawY)
     } catch (e) {
         console.error("Error drawing image:", e);
-        // Fallback, falls beim Zeichnen etwas schiefgeht
-        ctx.fillStyle = 'rgba(255,0,0,0.5)'; // Roter Hinweis
-        ctx.fillRect(0, h * 0.5, w, h * 0.5);
+        // Fallback, falls beim Zeichnen etwas schiefgeht (Position auch anpassen)
+        const errorY = isImageAtTop ? 0 : h * 0.5;
+        ctx.fillStyle = 'rgba(255,0,0,0.5)';
+        ctx.fillRect(0, errorY, w, h * 0.5);
         ctx.fillStyle = 'white';
-        ctx.fillText("Bildfehler", 10, h * 0.75);
+        ctx.fillText("Bildfehler", 10, errorY + h * 0.25); // Position im Fehler-Rechteck
     }
 
   } else if (isImageLoading) {
-      // Optional: Platzhalter anzeigen, während das Bild lädt
+      // Optional: Platzhalter anzeigen (Position auch anpassen)
+      const placeholderY = isImageAtTop ? 0 : h * 0.5;
       ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-      ctx.fillRect(0, h * 0.5, w, h * 0.5);
+      ctx.fillRect(0, placeholderY, w, h * 0.5);
       ctx.fillStyle = 'black';
       ctx.font = `${w*0.03}px sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText("Bild lädt...", w/2, h * 0.75);
+      ctx.fillText("Bild lädt...", w/2, placeholderY + (h * 0.5) * 0.5); // Zentriert im Platzhalter
       ctx.textAlign = 'left'; // Reset alignment
   }
 
 
-  // 1. Dekor-Shape (inspiriert von Oslo-Shapes) - Evtl. über dem Bild?
+  // 1. Dekor-Shape (Position bleibt vorerst gleich, könnte auch angepasst werden)
   ctx.fillStyle = theme.shape;
-  // Beispiel: Position leicht angepasst, damit es nicht direkt am Bildrand klebt
   ctx.fillRect(w * 0.05, h * 0.05, w * 0.15, w * 0.15);
 
-  // 2. Titel
+  // 2. Titel (Position bleibt vorerst gleich)
   ctx.fillStyle = theme.fg;
-  // Fallback-Font, falls tokens.font nicht geladen ist
   const fontName = tokens.font || 'sans-serif';
   ctx.font = `${t.fontSize}px "${fontName}"`;
-  // Position evtl. anpassen, wenn Bild vorhanden ist (hier: bleibt gleich)
-  ctx.fillText(text, w * 0.1, h * 0.25); // Leicht nach links verschoben
+  ctx.fillText(text, w * 0.1, h * 0.25);
 
-  // 3. Subtitle
+  // 3. Subtitle (Position bleibt vorerst gleich)
   if (sub) {
     ctx.font = `${t.subSize}px "${fontName}"`;
-    ctx.fillText(sub, w * 0.1, h * 0.25 + t.fontSize * 1.4); // Leicht nach links verschoben
+    ctx.fillText(sub, w * 0.1, h * 0.25 + t.fontSize * 1.4);
   }
 }
 
@@ -195,9 +200,11 @@ function generate() {
                  : { bg: '#cccccc', fg: '#000000', shape: '#999999' }; // Default theme
 
   const layouts = [
-    { id: 'poster', w: 794, h: 1123 }, // A4 @96 dpi (logische Pixel)
-    { id: 'post', w: 1080, h: 1080 }, // IG-Post
-    { id: 'banner', w: 1920, h: 1080 } // 16:9
+    // { id: 'poster', w: 794, h: 1123 }, 
+    // { id: 'banner', w: 1920, h: 1080 },
+    { id: 'poster', w: 397, h: 561 }, 
+    { id: 'post', w: 397, h: 561 }, 
+    { id: 'banner', w: 397, h: 561 } 
   ];
 
   layouts.forEach(l => {
@@ -270,50 +277,83 @@ function download() {
 
 // --- Initialisierung und Event Listener ---
 
+// ... (checkIfReadyToGenerate Funktion) ...
+
 // Funktion, um zu prüfen, ob alles bereit ist zum Generieren
 function checkIfReadyToGenerate() {
-    const generateButton = c('#generate');
-    if (!generateButton) return; // Button noch nicht im DOM
+  const generateButton = c('#generate');
+  const toggleImagePosButton = c('#toggleImagePosBtn'); // Button holen
 
-    // Bereit, wenn Tokens geladen sind UND kein Bild gerade lädt
-    const ready = tokens && Object.keys(tokens).length > 0 && !isImageLoading;
-    generateButton.disabled = !ready;
-    if (ready) {
-        console.log("Ready to generate.");
-        // Optional: Automatisch generieren, wenn alles bereit ist
-        // generate();
-    } else {
-        console.log("Not ready to generate yet.", { hasTokens: !!tokens, isImgLoading: isImageLoading });
-    }
+  const tokensReady = tokens && Object.keys(tokens).length > 0;
+  const imageLoadComplete = !isImageLoading; // Bild-Ladevorgang abgeschlossen (oder nie gestartet)
+  const imageIsPresent = !!uploadedImage; // Ein Bild wurde erfolgreich geladen
+
+  // Generieren-Button: Aktiv, wenn Tokens da sind und kein Bild gerade lädt
+  const canGenerate = tokensReady && imageLoadComplete;
+  if (generateButton) {
+      generateButton.disabled = !canGenerate;
+  }
+
+  // Toggle-Button: Aktiv, wenn Generieren möglich ist UND ein Bild vorhanden ist
+  const canToggle = canGenerate && imageIsPresent;
+  if (toggleImagePosButton) {
+      toggleImagePosButton.disabled = !canToggle;
+      // Text zurücksetzen, falls kein Bild mehr da ist (optional)
+      if (!imageIsPresent) {
+           toggleImagePosButton.textContent = `Bildposition wechseln (Aktuell: Mitte)`;
+           isImageAtTop = false; // Zustand zurücksetzen
+      }
+  }
+
+  if (canGenerate) {
+      console.log("Ready to generate.");
+  } else {
+      console.log("Not ready to generate yet.", { hasTokens: tokensReady, isImgLoading: isImageLoading });
+  }
 }
 
 
-// Warten, bis das HTML geladen ist, bevor Elemente gesucht werden
 document.addEventListener('DOMContentLoaded', () => {
-    const generateButton = c('#generate');
-    const downloadButton = c('#download');
-    const imageUploadInput = c('#imageUpload');
+  const generateButton = c('#generate');
+  const downloadButton = c('#download');
+  const imageUploadInput = c('#imageUpload');
+  const toggleImagePosButton = c('#toggleImagePosBtn'); // NEU: Button auswählen
 
-    if (generateButton) {
-        generateButton.addEventListener('click', generate);
-        generateButton.disabled = true; // Starte deaktiviert
-    } else {
-        console.error("Generate button #generate not found.");
-    }
+  if (generateButton) {
+      generateButton.addEventListener('click', generate);
+      generateButton.disabled = true;
+  } else {
+      console.error("Generate button #generate not found.");
+  }
 
-    if (downloadButton) {
-        downloadButton.addEventListener('click', download);
-        downloadButton.disabled = true; // Starte deaktiviert
-    } else {
-        console.error("Download button #download not found.");
-    }
+  if (downloadButton) {
+      downloadButton.addEventListener('click', download);
+      downloadButton.disabled = true;
+  } else {
+      console.error("Download button #download not found.");
+  }
 
-    if (imageUploadInput) {
-        imageUploadInput.addEventListener('change', handleImageUpload);
-    } else {
-        console.error("Image upload input #imageUpload not found.");
-    }
+  if (imageUploadInput) {
+      imageUploadInput.addEventListener('change', handleImageUpload);
+  } else {
+      console.error("Image upload input #imageUpload not found.");
+  }
 
-    // Lade die Tokens, nachdem die Listener eingerichtet sind
-    loadTokens(); // Startet das Laden der Konfiguration
+  // NEU: Event Listener für den Toggle-Button
+  if (toggleImagePosButton) {
+      toggleImagePosButton.addEventListener('click', () => {
+          isImageAtTop = !isImageAtTop; // Zustand umschalten
+          // Button-Text aktualisieren (optional, aber hilfreich)
+          toggleImagePosButton.textContent = `Bildposition wechseln (Aktuell: ${isImageAtTop ? 'Oben' : 'Mitte'})`;
+          // Layouts neu generieren mit der neuen Position
+          if (!generateButton.disabled) { // Nur generieren, wenn möglich
+             generate();
+          }
+      });
+      toggleImagePosButton.disabled = true; // Starte deaktiviert
+  } else {
+      console.error("Toggle image position button #toggleImagePosBtn not found.");
+  }
+
+  loadTokens();
 });
